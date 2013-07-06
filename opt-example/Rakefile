@@ -1,0 +1,42 @@
+rule ".ll" => ".c" do |t|
+  sh "clang -cc1 #{t.source} -emit-llvm"
+end
+
+rule ".bc" => ".ll" do |t|
+  sh "llvm-as #{t.source} -o #{t.target}"
+end
+
+rule ".ll" => ".bc" do |t|
+  sh "llvm-dis #{t.source} -o #{t.target}"
+end
+
+task :opt, "basename"
+task :opt do |t, args|
+  taskname = args["basename"]
+  
+  sh "rake #{taskname}.ll"
+  puts "---"
+  sh "cat #{taskname}.ll"
+  puts "---"
+  sh "opt -#{taskname} #{taskname}.ll | llvm-dis"
+end
+
+task :run, "basename"
+task :run do |t, args|
+  taskname = args["basename"]
+
+  sh "rake #{taskname}.ll"
+  sh "lli #{taskname}.ll"
+end
+  
+{
+  :std_pass => "-std-compile-opts",
+  :o1_pass  => "-O1",
+  :o3_pass  => "-O3",
+}.each do |key, value|
+  task key do |t|
+    sh <<EOD
+llvm-as < /dev/null | opt  -disable-output -debug-pass=Arguments
+EOD
+  end
+end
